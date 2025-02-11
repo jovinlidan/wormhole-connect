@@ -209,4 +209,15 @@ export const MAINNET_CHAINS: ChainsConfig = {
     icon: 'Worldchain',
     symbol: 'WORLD',
   },
+  Unichain: {
+    ...chains.Unichain!,
+    displayName: 'Unichain',
+    sdkName: 'Unichain',
+    explorerUrl: 'https://uniscan.xyz/',
+    explorerName: 'Uniscan',
+    chainId: 130,
+    icon: 'Unichain',
+    symbol: 'UNI',
+    wrappedGasToken: '0x4200000000000000000000000000000000000006',
+  },
 };
