@@ -1,7 +1,6 @@
 // Legacy SDK
 import {
   ChainConfig as BaseChainConfig,
-  TokenId,
   ChainResourceMap,
   WormholeContext,
   WormholeConfig,
@@ -12,21 +11,22 @@ import {
   Network,
   Wormhole as WormholeV2,
   Chain,
-  TokenAddress as TokenAddressV2,
   AttestationReceipt,
   routes,
 } from '@wormhole-foundation/sdk';
+
+import { PriorityFeeOptions } from '@wormhole-foundation/sdk-solana';
 
 import {
   TransferDetails,
   TriggerEventHandler,
   WormholeConnectEventHandler,
 } from 'telemetry/types';
-import { SDKConverter } from './converter';
 
 import RouteOperator from 'routes/operator';
 import { UiConfig } from './ui';
 import { TransferInfo } from 'utils/sdkv2';
+import { Token, TokenCache, TokenTuple } from './tokens';
 
 export enum TokenIcon {
   'AVAX' = 1,
@@ -99,14 +99,14 @@ export interface WormholeConnectConfig {
 
   // White lists
   chains?: Chain[];
-  tokens?: string[];
+  tokens?: (string | TokenTuple)[];
   routes?: routes.RouteConstructor<any>[];
 
   // Custom tokens
   tokensConfig?: TokensConfig;
 
   // Wormhole-wrapped token addresses
-  wrappedTokens?: TokenAddressesByChain;
+  wrappedTokens?: WrappedTokenAddresses;
 
   // Callbacks
   eventHandler?: WormholeConnectEventHandler;
@@ -115,6 +115,9 @@ export interface WormholeConnectConfig {
 
   // UI details
   ui?: UiConfig;
+
+  // Transaction settings (e.g. priority / gas fees)
+  transactionSettings?: TransactionSettings;
 }
 
 // This is the exported config value used throughout the code base
@@ -127,7 +130,6 @@ export interface InternalConfig<N extends Network> {
   whLegacy: WormholeContext;
 
   sdkConfig: WormholeConfig;
-  sdkConverter: SDKConverter;
 
   isMainnet: boolean;
 
@@ -140,12 +142,11 @@ export interface InternalConfig<N extends Network> {
   wormholeRpcHosts: string[];
   coinGeckoApiKey?: string;
 
-  // White lists
+  tokens: TokenCache;
+  tokenWhitelist?: (string | TokenTuple)[];
+
   chains: ChainsConfig;
   chainsArr: ChainConfig[];
-  tokens: TokensConfig;
-  tokensArr: TokenConfig[];
-  wrappedTokenAddressCache: WrappedTokenAddressCache;
 
   routes: RouteOperator;
 
@@ -158,28 +159,30 @@ export interface InternalConfig<N extends Network> {
   ui: UiConfig;
 
   guardianSet: GuardianSetData;
+
+  transactionSettings: TransactionSettings;
 }
 
 export type TokenConfig = {
-  key: string;
   symbol: string;
-  nativeChain: Chain;
-  icon: TokenIcon | string;
-  tokenId?: TokenId; // if no token id, it is the native token
-  coinGeckoId: string;
-  color?: string;
+  name?: string;
   decimals: number;
-  wrappedAsset?: string;
-  displayName?: string;
+  icon: TokenIcon | string;
+  tokenId: {
+    chain: Chain;
+    address: string;
+  };
 };
 
 export type TokensConfig = { [key: string]: TokenConfig };
 
 export interface ChainConfig extends BaseChainConfig {
+  sdkName: Chain;
   displayName: string;
   explorerUrl: string;
   explorerName: string;
   gasToken: string;
+  wrappedGasToken?: string;
   chainId: number | string;
   icon: Chain;
   maxBlockSearch: number;
@@ -199,74 +202,21 @@ export type GuardianSetData = {
 
 export type NetworkData = {
   chains: ChainsConfig;
-  tokens: TokensConfig;
-  wrappedTokens: TokenAddressesByChain; // wormhole-wrapped tokens
+  tokens: TokenConfig[];
+  wrappedTokens: WrappedTokenAddresses;
   rpcs: RpcMapping;
   rest: RpcMapping;
   graphql: RpcMapping;
   guardianSet: GuardianSetData;
 };
 
-export type TokenAddressesByChain = {
-  [tokenKey: string]: {
-    [chain in Chain]?: string;
+export type WrappedTokenAddresses = {
+  [chain in Chain]?: {
+    [address: string]: {
+      [otherChain in Chain]?: string;
+    };
   };
 };
-
-// Token bridge foreign asset cache
-// Used in utils/sdkv2.ts
-
-type ForeignAssets<C extends Chain> = Record<string, TokenAddressV2<C>>;
-
-export class WrappedTokenAddressCache {
-  caches: Partial<Record<Chain, ForeignAssets<Chain>>>;
-
-  constructor(tokens: TokensConfig, addresses: TokenAddressesByChain) {
-    this.caches = {};
-
-    // Pre-populate cache with values from built-in config
-    for (const [key, token] of Object.entries(tokens)) {
-      // Cache any Wormhole-wrapped tokens
-      const wrappedTokens = addresses[key];
-      if (wrappedTokens) {
-        for (const chain in wrappedTokens) {
-          const foreignAsset = wrappedTokens[chain];
-          const addr = WormholeV2.parseAddress(chain as Chain, foreignAsset);
-          this.set(key, chain as Chain, addr);
-        }
-      }
-
-      // Cache it on its native chain too
-      if (token.tokenId) {
-        try {
-          this.set(
-            key,
-            token.nativeChain,
-            WormholeV2.parseAddress(token.nativeChain, token.tokenId.address),
-          );
-        } catch (e) {
-          console.error(`Error caching foreign asset`, token.tokenId, e);
-        }
-      }
-    }
-  }
-
-  get<C extends Chain>(tokenKey: string, chain: C): TokenAddressV2<C> | null {
-    const chainCache = this.caches[chain] as ForeignAssets<C>;
-    if (!chainCache) return null;
-    return chainCache[tokenKey] || null;
-  }
-
-  set<C extends Chain>(
-    tokenKey: string,
-    chain: C,
-    foreignAsset: TokenAddressV2<C>,
-  ) {
-    if (!this.caches[chain]) this.caches[chain] = {};
-    const chainCache = this.caches[chain]!;
-    chainCache[tokenKey] = foreignAsset;
-  }
-}
 
 // Transactions in Transaction History view
 export interface Transaction {
@@ -279,18 +229,13 @@ export interface Transaction {
 
   amount: string;
   amountUsd: number;
+  receiveAmount: string;
+
+  fromChain: Chain;
+  fromToken: Token;
 
   toChain: Chain;
-  fromChain: Chain;
-
-  // Source token address
-  tokenAddress: string;
-  tokenKey: string;
-  tokenDecimals?: number;
-
-  // Destination token
-  receivedTokenKey: string;
-  receiveAmount: string;
+  toToken: Token;
 
   // Timestamps
   senderTimestamp: string;
@@ -311,4 +256,10 @@ export interface TransactionLocal {
   txHash: string;
   txDetails: TransferInfo;
   isReadyToClaim?: boolean;
+}
+
+export interface TransactionSettings {
+  Solana?: {
+    priorityFee?: PriorityFeeOptions;
+  };
 }

@@ -1,4 +1,10 @@
-import React, { ReactNode, useEffect, useMemo, useState } from 'react';
+import React, {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTimer } from 'react-timer-hook';
 import { useTheme } from '@mui/material';
@@ -57,6 +63,8 @@ import TxFailedIcon from 'icons/TxFailed';
 import { getAssociatedTokenAddressSync } from '@solana/spl-token';
 import { PublicKey } from '@solana/web3.js';
 import TxReadyForClaim from 'icons/TxReadyForClaim';
+import { useGetRedeemTokens } from 'hooks/useGetTokens';
+import { tokenIdFromTuple } from 'config/tokens';
 
 type StyleProps = {
   transitionDuration?: string | undefined;
@@ -123,13 +131,6 @@ const useStyles = makeStyles<StyleProps>()((theme, { transitionDuration }) => ({
     width: '105px',
     height: '105px',
   },
-  poweredBy: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: '8px',
-    marginTop: '24px',
-  },
   delayText: {
     maxWidth: '420px',
   },
@@ -148,6 +149,15 @@ const Redeem = () => {
   const [isWalletSidebarOpen, setIsWalletSidebarOpen] = useState(false);
 
   const routeContext = React.useContext(RouteContext);
+
+  const { sourceToken, destToken } = useGetRedeemTokens();
+
+  if (!sourceToken) {
+    // TODO
+  }
+  if (!destToken) {
+    // TODO
+  }
 
   useConnectToLastUsedWallet();
 
@@ -172,18 +182,44 @@ const Redeem = () => {
     recipient,
     toChain,
     fromChain,
-    tokenKey,
-    receivedTokenKey,
+    token,
+    receivedToken,
     amount,
     eta = 0,
   } = txData!;
 
   const getUSDAmount = useUSDamountGetter();
 
+  const etaDate: Date | undefined = useMemo(() => {
+    if (eta && txTimestamp) {
+      return new Date(txTimestamp + eta);
+    } else {
+      return undefined;
+    }
+  }, [eta, txTimestamp]);
+
+  // Initialize the countdown with 0, 0 as we might not have eta or txTimestamp yet
+  const { seconds, minutes, isRunning, restart } = useTimer({
+    expiryTimestamp: new Date(),
+    autoStart: false,
+    onExpire: () => setEtaExpired(true),
+  });
+
+  // Side-effect to start the ETA timer when we have the ETA and tx timestamp
+  useEffect(() => {
+    // Only start when we have the required values and if the timer hasn't been started yet
+    if (!txTimestamp || !eta || isRunning) {
+      return;
+    }
+
+    restart(new Date(txTimestamp + eta), true);
+  }, [eta, isRunning, restart, txTimestamp]);
+
   // Start tracking changes in the transaction
   const txTrackingResult = useTrackTransfer({
     receipt,
     route: routeName,
+    eta: etaDate,
   });
 
   // We need check the initial receipt state and tracking result together
@@ -214,8 +250,8 @@ const Redeem = () => {
 
   const details = getTransferDetails(
     routeName!,
-    tokenKey,
-    receivedTokenKey,
+    sourceToken!,
+    destToken!,
     fromChain,
     toChain,
     amount,
@@ -310,6 +346,8 @@ const Redeem = () => {
       // we will mark the local storage item as readyToClaim
       updateTxInLocalStorage(txData?.sendTx, 'isReadyToClaim', true);
     }
+    // We should run this side-effect only when tx/receipt status changes or we receive an error.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     receipt?.state,
     isTxCompleted,
@@ -322,23 +360,6 @@ const Redeem = () => {
   const receivingWallet = useSelector(
     (state: RootState) => state.wallet.receiving,
   );
-
-  // Initialize the countdown with 0, 0 as we might not have eta or txTimestamp yet
-  const { seconds, minutes, isRunning, restart } = useTimer({
-    expiryTimestamp: new Date(),
-    autoStart: false,
-    onExpire: () => setEtaExpired(true),
-  });
-
-  // Side-effect to start the ETA timer when we have the ETA and tx timestamp
-  useEffect(() => {
-    // Only start when we have the required values and if the timer hasn't been started yet
-    if (!txTimestamp || !eta || isRunning) {
-      return;
-    }
-
-    restart(new Date(txTimestamp + eta), true);
-  }, [eta, isRunning, restart, txTimestamp]);
 
   // Time remaining to reach the estimated completion of the transaction
   const remainingEta = useMemo(() => {
@@ -369,13 +390,7 @@ const Redeem = () => {
       headerConfig = { ...defaults, ...config.ui.pageHeader };
     }
 
-    return (
-      <PageHeader
-        title={headerConfig.text}
-        align={headerConfig.align}
-        showHamburgerMenu={config.ui.showHamburgerMenu}
-      />
-    );
+    return <PageHeader title={headerConfig.text} align={headerConfig.align} />;
   }, []);
 
   // Header showing the status of the transaction
@@ -637,24 +652,14 @@ const Redeem = () => {
       // These routes set the recipient address to the associated token address
       ['ManualTokenBridge', 'ManualCCTP'].includes(routeName)
     ) {
-      const receivedToken = config.sdkConverter.toTokenIdV2(
-        config.tokens[receivedTokenKey],
-        'Solana',
-      );
+      const { address: receiveTokenAddress } = tokenIdFromTuple(receivedToken);
 
-      try {
-        const ata = getAssociatedTokenAddressSync(
-          new PublicKey(receivedToken.address.toString()),
-          new PublicKey(receivingWallet.address),
-        );
-        if (!ata.equals(new PublicKey(recipient))) {
-          setClaimError('Not connected to the receiving wallet');
-          return false;
-        }
-      } catch (e: unknown) {
-        console.log(
-          `Error while checking associated token address for the recipient: ${e}`,
-        );
+      const ata = getAssociatedTokenAddressSync(
+        new PublicKey(receiveTokenAddress.toString()),
+        new PublicKey(receivingWallet.address),
+      );
+      if (!ata.equals(new PublicKey(recipient))) {
+        setClaimError('Not connected to the receiving wallet');
         return false;
       }
 
@@ -677,14 +682,15 @@ const Redeem = () => {
     toChain,
     isResumeTx,
     routeName,
-    receivedTokenKey,
+    receivedToken,
   ]);
 
   // Callback for claim action in Manual route transactions
-  const handleManualClaim = async () => {
+  const handleManualClaim = useCallback(async () => {
     // This will be set back to false by a hook above which looks out for isTxComplete=true
     setIsClaimInProgress(true);
     setClaimError('');
+    setUnhandledManualClaimError(undefined);
 
     if (!routeName) {
       throw new Error('Unknown route, can not claim');
@@ -696,8 +702,8 @@ const Redeem = () => {
 
     const transferDetails = {
       route: routeName,
-      fromToken: getTokenDetails(tokenKey),
-      toToken: getTokenDetails(receivedTokenKey),
+      fromToken: getTokenDetails(config.tokens.mustGet(token)),
+      toToken: getTokenDetails(config.tokens.mustGet(receivedToken)),
       fromChain: fromChain,
       toChain: toChain,
     };
@@ -767,24 +773,21 @@ const Redeem = () => {
       setUnhandledManualClaimError(e);
       setIsClaimInProgress(false);
     }
-  };
+  }, [
+    details,
+    fromChain,
+    isConnectedToReceivingWallet,
+    isTxDestQueued,
+    receivingWallet.address,
+    token,
+    routeContext.receipt,
+    routeContext.route,
+    routeName,
+    toChain,
+  ]);
 
   // Main CTA button which has separate states for automatic and manual claims
   const actionButton = useMemo(() => {
-    if (isTxCompleted || isTxRefunded) {
-      return (
-        <Button
-          variant="primary"
-          className={classes.actionButton}
-          onClick={() => {
-            dispatch(setRoute('bridge'));
-          }}
-        >
-          <Typography textTransform="none">Start a new transaction</Typography>
-        </Button>
-      );
-    }
-
     if (isClaimInProgress) {
       return (
         <Button disabled variant="primary" className={classes.actionButton}>
@@ -806,10 +809,8 @@ const Redeem = () => {
       );
     }
 
-    const canBeManuallyClaimed =
-      isTxDestQueued || (!isAutomaticRoute && isTxAttested);
-
-    if (canBeManuallyClaimed) {
+    // Checking if transaction can be manually claimed
+    if (isTxDestQueued || (!isAutomaticRoute && isTxAttested)) {
       if (!isConnectedToReceivingWallet) {
         return (
           <Button
@@ -838,27 +839,35 @@ const Redeem = () => {
     }
 
     return (
-      <Button
-        variant="primary"
-        className={classes.actionButton}
-        onClick={() => {
-          dispatch(setRoute('bridge'));
-        }}
-      >
-        <Typography textTransform="none">Start a new transaction</Typography>
-      </Button>
+      <>
+        <Button
+          variant="primary"
+          className={classes.actionButton}
+          onClick={() => {
+            dispatch(setRoute('bridge'));
+          }}
+        >
+          <Typography textTransform="none">Start a new transaction</Typography>
+        </Button>
+        {!isTxCompleted && (
+          <Typography fontSize="12px" sx={{ margin: 'auto', opacity: 0.6 }}>
+            Your current transaction will continue to process in the background.
+          </Typography>
+        )}
+      </>
     );
   }, [
     claimError,
     classes.actionButton,
     classes.claimButton,
+    dispatch,
+    handleManualClaim,
     isAutomaticRoute,
     isClaimInProgress,
     isConnectedToReceivingWallet,
     isTxAttested,
     isTxCompleted,
     isTxDestQueued,
-    isTxRefunded,
     theme.palette.primary.contrastText,
   ]);
 
@@ -868,7 +877,7 @@ const Redeem = () => {
     }
 
     const { to, queueReleaseTime } = routeContext.receipt;
-    const symbol = config.tokens[receivedTokenKey]?.symbol || '';
+    const symbol = config.tokens.get(receivedToken)?.symbol || '';
     const releaseTime = queueReleaseTime.toLocaleString();
 
     return (
@@ -884,7 +893,7 @@ const Redeem = () => {
     );
   }, [
     classes.delayText,
-    receivedTokenKey,
+    receivedToken,
     routeContext.receipt,
     theme.palette.text.secondary,
   ]);
@@ -921,9 +930,7 @@ const Redeem = () => {
         show={!!claimError}
         className={classes.errorBox}
       />
-      <div className={classes.poweredBy}>
-        <PoweredByIcon color={theme.palette.text.primary} />
-      </div>
+      <PoweredByIcon color={theme.palette.text.primary} />
       <WalletSidebar
         open={isWalletSidebarOpen}
         type={TransferWallet.RECEIVING}

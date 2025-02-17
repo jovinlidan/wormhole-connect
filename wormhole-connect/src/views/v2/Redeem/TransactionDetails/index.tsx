@@ -1,7 +1,6 @@
 import React, { ReactNode, useMemo } from 'react';
 import { useSelector } from 'react-redux';
 import { useTheme } from '@mui/material';
-import Badge from '@mui/material/Badge';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import CircularProgress from '@mui/material/CircularProgress';
@@ -13,8 +12,7 @@ import { makeStyles } from 'tss-react/mui';
 
 import config from 'config';
 import { RouteContext } from 'contexts/RouteContext';
-import ChainIcon from 'icons/ChainIcons';
-import TokenIcon from 'icons/TokenIcons';
+import AssetBadge from 'components/AssetBadge';
 import {
   calculateUSDPrice,
   millisToHumanString,
@@ -26,6 +24,7 @@ import { amount as sdkAmount } from '@wormhole-foundation/sdk';
 
 import type { RootState } from 'store';
 import { toFixedDecimals } from 'utils/balance';
+import { useTokens } from 'contexts/TokensContext';
 
 const useStyles = makeStyles()((theme: any) => ({
   container: {
@@ -49,8 +48,8 @@ const TransactionDetails = () => {
     recipient,
     toChain,
     fromChain,
-    tokenKey,
-    receivedTokenKey,
+    token,
+    receivedToken,
     receiveAmount,
     receiveNativeAmount,
     relayerFee,
@@ -59,22 +58,32 @@ const TransactionDetails = () => {
 
   const { route: routeName } = useSelector((state: RootState) => state.redeem);
 
-  const { usdPrices: tokenPrices } = useSelector(
-    (state: RootState) => state.tokenPrices,
+  const sourceToken = config.tokens.get(token);
+  const destToken = config.tokens.get(receivedToken);
+
+  const { getTokenPrice, isFetchingTokenPrices, lastTokenPriceUpdate } =
+    useTokens();
+
+  // Separator with a unicode dot in the middle
+  const separator = useMemo(
+    () => (
+      <Typography component="span" padding="0px 8px">{`\u00B7`}</Typography>
+    ),
+    [],
   );
 
   // Render details for the sent amount
   const sentAmount = useMemo(() => {
-    if (!tokenKey || !fromChain) {
+    if (!sourceToken || !fromChain) {
       return <></>;
     }
 
-    const sourceTokenConfig = config.tokens[tokenKey];
+    const sourceTokenConfig = config.tokens.get(token);
     const sourceChainConfig = config.chains[fromChain]!;
 
     const usdAmount = calculateUSDPrice(
+      getTokenPrice,
       amount,
-      tokenPrices.data,
       sourceTokenConfig,
     );
 
@@ -84,49 +93,51 @@ const TransactionDetails = () => {
 
     return (
       <Stack alignItems="center" direction="row" justifyContent="flex-start">
-        <Badge
-          badgeContent={
-            <ChainIcon icon={sourceChainConfig?.icon} height={16} />
-          }
-          sx={{
-            marginRight: '4px',
-            '& .MuiBadge-badge': {
-              right: 2,
-              top: 24,
-            },
-          }}
-        >
-          <TokenIcon icon={sourceTokenConfig?.icon} height={32} />
-        </Badge>
+        <AssetBadge chainConfig={sourceChainConfig} token={sourceTokenConfig} />
         <Stack direction="column" marginLeft="12px">
           <Typography fontSize={16}>
-            {formattedAmount} {sourceTokenConfig.symbol}
+            {formattedAmount} {sourceToken.symbol}
           </Typography>
           <Typography color={theme.palette.text.secondary} fontSize={14}>
-            {tokenPrices.isFetching ? (
+            {isFetchingTokenPrices ? (
               <CircularProgress size={14} />
             ) : (
-              `${usdAmount} \u2022 ${sourceChainConfig.displayName} \u2022 ${senderAddress}`
+              <>
+                {usdAmount}
+                {usdAmount ? separator : null}
+                {sourceChainConfig.displayName}
+                {separator}
+                {senderAddress}
+              </>
             )}
           </Typography>
         </Stack>
       </Stack>
     );
-  }, [amount, fromChain, sender, tokenKey, tokenPrices]);
+  }, [
+    sourceToken,
+    fromChain,
+    token,
+    getTokenPrice,
+    amount,
+    sender,
+    theme.palette.text.secondary,
+    isFetchingTokenPrices,
+    separator,
+  ]);
 
   // Render details for the received amount
   const receivedAmount = useMemo(() => {
-    if (!receivedTokenKey || !toChain) {
+    if (!destToken || !toChain) {
       return <></>;
     }
 
-    const destTokenConfig = config.tokens[receivedTokenKey];
     const destChainConfig = config.chains[toChain]!;
 
     const usdAmount = calculateUSDPrice(
+      getTokenPrice,
       receiveAmount,
-      tokenPrices.data,
-      destTokenConfig,
+      destToken,
     );
 
     const recipientAddress = recipient ? trimAddress(recipient) : '';
@@ -137,33 +148,41 @@ const TransactionDetails = () => {
 
     return (
       <Stack alignItems="center" direction="row" justifyContent="flex-start">
-        <Badge
-          badgeContent={<ChainIcon icon={destChainConfig?.icon} height={16} />}
-          sx={{
-            marginRight: '4px',
-            '& .MuiBadge-badge': {
-              right: 2,
-              top: 24,
-            },
-          }}
-        >
-          <TokenIcon icon={destTokenConfig?.icon} height={32} />
-        </Badge>
+        <AssetBadge chainConfig={destChainConfig} token={destToken} />
         <Stack direction="column" marginLeft="12px">
           <Typography fontSize={16}>
-            {formattedReceiveAmount} {destTokenConfig.symbol}
+            {formattedReceiveAmount} {destToken!.symbol}
           </Typography>
           <Typography color={theme.palette.text.secondary} fontSize={14}>
-            {tokenPrices.isFetching ? (
+            {isFetchingTokenPrices ? (
               <CircularProgress size={14} />
             ) : (
-              `${usdAmount} \u2022 ${destChainConfig.displayName} \u2022 ${recipientAddress}`
+              <>
+                {usdAmount}
+                {usdAmount ? separator : null}
+                {destChainConfig.displayName}
+                {separator}
+                {recipientAddress}
+              </>
             )}
           </Typography>
         </Stack>
       </Stack>
     );
-  }, [receiveAmount, receivedTokenKey, recipient, toChain, tokenPrices]);
+    // ESLint complains that lastTokenPriceUpdate is unused/unnecessary here, but that's wrong.
+    // We want to recompute the price after we update conversion rates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    destToken,
+    getTokenPrice,
+    receiveAmount,
+    recipient,
+    separator,
+    theme.palette.text.secondary,
+    toChain,
+    isFetchingTokenPrices,
+    lastTokenPriceUpdate,
+  ]);
 
   // Vertical line that connects sender and receiver token icons
   const verticalConnector = useMemo(
@@ -178,18 +197,18 @@ const TransactionDetails = () => {
   );
 
   const bridgeFee = useMemo(() => {
-    if (!relayerFee) {
+    if (!relayerFee || !relayerFee.token) {
       return <></>;
     }
 
-    const feeTokenConfig = config.tokens[relayerFee.tokenKey];
+    const feeTokenConfig = config.tokens.get(relayerFee.token);
     if (!feeTokenConfig) {
       return <></>;
     }
 
     const feePrice = calculateUSDPrice(
+      getTokenPrice,
       relayerFee.fee,
-      tokenPrices.data,
       feeTokenConfig,
     );
 
@@ -214,14 +233,20 @@ const TransactionDetails = () => {
         <Typography color={theme.palette.text.secondary} fontSize={14}>
           Network cost
         </Typography>
-        {tokenPrices.isFetching ? <CircularProgress size={14} /> : feeValue}
+        {isFetchingTokenPrices ? <CircularProgress size={14} /> : feeValue}
       </Stack>
     );
-  }, [relayerFee, routeName, tokenPrices]);
+  }, [
+    relayerFee,
+    getTokenPrice,
+    routeName,
+    theme.palette.text.secondary,
+    isFetchingTokenPrices,
+  ]);
 
   const destinationGas = useMemo(() => {
     if (
-      !receivedTokenKey ||
+      !receivedToken ||
       !receiveNativeAmount ||
       sdkAmount.units(receiveNativeAmount) === 0n
     ) {
@@ -235,24 +260,33 @@ const TransactionDetails = () => {
     }
 
     const gasTokenPrice = calculateUSDPrice(
+      getTokenPrice,
       receiveNativeAmount,
-      tokenPrices.data,
-      config.tokens[destChainConfig.gasToken],
+      config.tokens.getGasToken(destChainConfig.sdkName),
     );
 
     return (
       <Stack direction="row" justifyContent="space-between">
         <Typography color={theme.palette.text.secondary} fontSize={14}>
-          Additional Gas
+          Additional gas
         </Typography>
-        {tokenPrices.isFetching ? (
+        {isFetchingTokenPrices ? (
           <CircularProgress size={14} />
         ) : (
           <Typography fontSize={14}>{gasTokenPrice}</Typography>
         )}
       </Stack>
     );
-  }, [receiveNativeAmount, toChain, tokenPrices]);
+    // ESLint complains that lastTokenPriceUpdate is unused/unnecessary here, but that's wrong.
+    // We want to recompute the price after we update conversion rates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    receiveNativeAmount,
+    theme.palette.text.secondary,
+    toChain,
+    isFetchingTokenPrices,
+    lastTokenPriceUpdate,
+  ]);
 
   const explorerLink = useMemo(() => {
     // Fallback to routeName if RouteContext value is not available
@@ -282,7 +316,7 @@ const TransactionDetails = () => {
         </Link>
       </Stack>
     );
-  }, [sendTx, routeContext.route]);
+  }, [routeContext.route, routeName, sendTx, theme.palette.text.primary]);
 
   const timeToDestination = useMemo(() => {
     let etaDisplay: string | ReactNode = <CircularProgress size={14} />;
@@ -299,7 +333,7 @@ const TransactionDetails = () => {
         <Typography fontSize={14}>{etaDisplay}</Typography>
       </Stack>
     );
-  }, [eta]);
+  }, [eta, theme.palette.text.secondary, toChain]);
 
   return (
     <div className={classes.container}>
