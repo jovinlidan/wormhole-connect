@@ -31,9 +31,11 @@ const useStyles = makeStyles()((theme: any) => ({
   container: {
     width: '100%',
     maxWidth: '420px',
+    backgroundColor: theme.palette.input.background,
   },
   card: {
     width: '100%',
+    backgroundColor: theme.palette.input.background,
   },
 }));
 

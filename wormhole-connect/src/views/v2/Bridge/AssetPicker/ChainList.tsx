@@ -19,8 +19,9 @@ import SearchableList from 'views/v2/Bridge/AssetPicker/SearchableList';
 import { Chain } from '@wormhole-foundation/sdk';
 import { useMediaQuery, useTheme } from '@mui/material';
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()((theme: any) => ({
   card: {
+    background: theme.palette.input.background,
     width: '420px',
     [theme.breakpoints.down('sm')]: {
       maxWidth: '420px',
@@ -31,7 +32,7 @@ const useStyles = makeStyles()((theme) => ({
     },
   },
   cardContent: {
-    paddingBottom: 0,
+    paddingBottom: '0!important',
     [theme.breakpoints.down('sm')]: {
       padding: '16px 10px',
       ':last-child': {
@@ -89,7 +90,7 @@ const ChainList = (props: Props) => {
     onChainSelect,
   } = props;
 
-  const topChains = useMemo(() => {
+  const [topChains, showMoreButton] = useMemo(() => {
     const allChains = chainList ?? [];
     const selectedChain = selectedChainConfig;
 
@@ -105,10 +106,16 @@ const ChainList = (props: Props) => {
       selectedChainIndex &&
       selectedChainIndex >= shortListSize
     ) {
-      return [selectedChain, ...allChains.slice(0, shortListSize - 1)];
+      return [
+        [selectedChain, ...allChains.slice(0, shortListSize - 1)],
+        allChains.length > shortListSize,
+      ];
     }
 
-    return allChains.slice(0, shortListSize);
+    return [
+      allChains.slice(0, shortListSize),
+      allChains.length > shortListSize,
+    ];
   }, [mobile, chainList, selectedChainConfig]);
 
   const shortList = useMemo(() => {
@@ -133,22 +140,25 @@ const ChainList = (props: Props) => {
             </ListItemButton>
           </Tooltip>
         ))}
-        <ListItemButton
-          className={classes.chainButton}
-          onClick={() => {
-            setShowSearch(true);
-          }}
-        >
-          <PlusIcon sx={{ height: '36px', width: '36px' }} />
-          <Typography
-            fontSize="12px"
-            lineHeight="12px"
-            marginTop="8px"
-            whiteSpace="nowrap"
+
+        {showMoreButton ? (
+          <ListItemButton
+            className={classes.chainButton}
+            onClick={() => {
+              setShowSearch(true);
+            }}
           >
-            other
-          </Typography>
-        </ListItemButton>
+            <PlusIcon sx={{ height: '36px', width: '36px' }} />
+            <Typography
+              fontSize="12px"
+              lineHeight="12px"
+              marginTop="8px"
+              whiteSpace="nowrap"
+            >
+              other
+            </Typography>
+          </ListItemButton>
+        ) : null}
       </List>
     );
   }, [
@@ -197,6 +207,10 @@ const ChainList = (props: Props) => {
       setShowSearch,
     ],
   );
+
+  if (topChains.length < 2) {
+    return null;
+  }
 
   return (
     <Card className={classes.card} variant="elevation">

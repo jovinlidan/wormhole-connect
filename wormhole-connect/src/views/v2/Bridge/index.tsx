@@ -51,7 +51,7 @@ import { Token } from 'config/tokens';
 
 import { useTokens } from 'contexts/TokensContext';
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()((theme: any) => ({
   assetPickerContainer: {
     width: '100%',
     position: 'relative',
@@ -80,14 +80,6 @@ const useStyles = makeStyles()((theme) => ({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-  },
-  reviewTransaction: {
-    padding: '8px 16px',
-    borderRadius: '8px',
-    height: '48px',
-    margin: 'auto',
-    maxWidth: '420px',
     width: '100%',
   },
   spacer: {
@@ -447,9 +439,8 @@ const Bridge = () => {
   const reviewTransactionButton = (
     <Button
       variant="primary"
-      className={classes.reviewTransaction}
       disabled={reviewTransactionDisabled}
-      onClick={() => {
+      onMouseDown={() => {
         dispatch(setTransferRoute(selectedRoute));
         setWillReviewTransaction(true);
       }}

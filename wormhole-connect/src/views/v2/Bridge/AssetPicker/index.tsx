@@ -3,11 +3,7 @@ import { makeStyles } from 'tss-react/mui';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import Popover from '@mui/material/Popover';
-import {
-  usePopupState,
-  bindTrigger,
-  bindPopover,
-} from 'material-ui-popup-state/hooks';
+import { usePopupState, bindPopover } from 'material-ui-popup-state/hooks';
 import Typography from '@mui/material/Typography';
 
 import DownIcon from '@mui/icons-material/ExpandMore';
@@ -23,13 +19,20 @@ import TokenList from './TokenList';
 import { Chain } from '@wormhole-foundation/sdk';
 import AssetBadge from 'components/AssetBadge';
 import { Token } from 'config/tokens';
+import { Backdrop } from '@mui/material';
 
 const useStyles = makeStyles()((theme: any) => ({
-  card: {
+  inputArea: {
     width: '100%',
     cursor: 'pointer',
     maxWidth: '420px',
     borderRadius: '8px',
+    background: 'transparent',
+    border: `1px solid ${theme.palette.input.border}`,
+  },
+  inputAreaEmpty: {
+    borderColor: theme.palette.input.background,
+    background: theme.palette.input.background,
   },
   cardContent: {
     display: 'flex',
@@ -52,11 +55,18 @@ const useStyles = makeStyles()((theme: any) => ({
     clickEvent: 'none',
   },
   popover: {
-    marginTop: '4px',
+    marginLeft: '-1px',
+    marginTop: '-1px',
+    width: '422px',
   },
   popoverSlot: {
     width: '100%',
-    maxWidth: '420px',
+    maxWidth: '422px',
+    borderRadius: '8px',
+    background: theme.palette.input.background,
+  },
+  backdrop: {
+    backgroundColor: `rgba(0,0,0,0.2)`,
   },
 }));
 
@@ -153,10 +163,13 @@ const AssetPicker = (props: Props) => {
 
   return (
     <>
+      <Backdrop open={popupState.isOpen} className={classes.backdrop} />
       <Card
-        className={classes.card}
-        variant="elevation"
-        {...bindTrigger(popupState)}
+        className={`${classes.inputArea} ${
+          chainConfig ? '' : classes.inputAreaEmpty
+        }`}
+        onMouseDown={popupState.open}
+        onTouchStart={popupState.open}
       >
         <CardContent className={classes.cardContent}>
           <Typography
@@ -172,6 +185,7 @@ const AssetPicker = (props: Props) => {
       </Card>
       <Popover
         {...bindPopover(popupState)}
+        transitionDuration={200}
         anchorOrigin={{
           vertical: 'top',
           horizontal: 'center',
