@@ -28,6 +28,7 @@ const useStyles = makeStyles()((theme: any) => ({
   card: {
     width: '100%',
     borderRadius: '8px',
+    border: `1px solid ${theme.palette.input.border}`,
   },
   cardHeader: {
     paddingBottom: 0,
@@ -46,7 +47,6 @@ const TxHistoryItem = (props: Props) => {
     txHash,
     amount,
     amountUsd,
-    recipient,
     fromChain,
     fromToken,
     toChain,
@@ -63,8 +63,7 @@ const TxHistoryItem = (props: Props) => {
     ),
     [],
   );
-  const { getTokenPrice, isFetchingTokenPrices, lastTokenPriceUpdate } =
-    useTokens();
+  const { getTokenPrice, lastTokenPriceUpdate } = useTokens();
 
   // Render details for the sent amount
   const sentAmount = useMemo(() => {
@@ -72,17 +71,18 @@ const TxHistoryItem = (props: Props) => {
 
     return (
       <Stack alignItems="center" direction="row" justifyContent="flex-start">
-        <AssetBadge
-          chainConfig={sourceChainConfig}
-          token={fromToken}
-        />
+        <AssetBadge chainConfig={sourceChainConfig} token={fromToken} />
         <Stack direction="column" marginLeft="12px">
           <Typography fontSize={16}>
             {amount} {fromToken?.symbol}
           </Typography>
           <Typography color={theme.palette.text.secondary} fontSize={14}>
-            {getUSDFormat(amountUsd)}
-            {separator}
+            {amountUsd ? (
+              <>
+                {getUSDFormat(amountUsd)}
+                {separator}
+              </>
+            ) : null}
             {sourceChainConfig?.displayName}
           </Typography>
         </Stack>
@@ -102,12 +102,13 @@ const TxHistoryItem = (props: Props) => {
     const destChainConfig = config.chains[toChain]!;
     const destTokenConfig = toToken;
 
-
-    const receiveAmountPrice = calculateUSDPrice(
-      getTokenPrice,
-      parseFloat(receiveAmount),
-      destTokenConfig,
-    );
+    const receiveAmountPrice = receiveAmount
+      ? calculateUSDPrice(
+          getTokenPrice,
+          parseFloat(receiveAmount),
+          destTokenConfig,
+        )
+      : 0;
 
     const receiveAmountDisplay = receiveAmountPrice ? (
       <>
@@ -118,10 +119,7 @@ const TxHistoryItem = (props: Props) => {
 
     return (
       <Stack alignItems="center" direction="row" justifyContent="flex-start">
-        <AssetBadge
-          chainConfig={destChainConfig}
-          token={destTokenConfig}
-        />
+        <AssetBadge chainConfig={destChainConfig} token={destTokenConfig} />
         <Stack direction="column" marginLeft="12px">
           <Typography fontSize={16}>
             {receiveAmount} {destTokenConfig?.symbol}
@@ -133,16 +131,17 @@ const TxHistoryItem = (props: Props) => {
         </Stack>
       </Stack>
     );
+    // ESLint complains that lastTokenPriceUpdate is unused/unnecessary here,
+    // but we want to recompute the price after we update conversion rates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-
-    isFetchingTokenPrices,
     lastTokenPriceUpdate,
-    receiveAmount,
+    toChain,
     toToken,
-    recipient,
+    receiveAmount,
+    getTokenPrice,
     separator,
     theme.palette.text.secondary,
-    toChain,
   ]);
 
   // Vertical line that connects sender and receiver token icons

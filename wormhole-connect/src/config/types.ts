@@ -64,6 +64,7 @@ export enum TokenIcon {
   'XLAYER',
   'MANTLE',
   'WORLDCHAIN',
+  'BERA',
 }
 
 // Used in bridging components
@@ -93,9 +94,10 @@ export interface WormholeConnectConfig {
 
   // External resources
   rpcs?: ChainResourceMap;
-  rest?: ChainResourceMap;
-  graphql?: ChainResourceMap;
-  coinGeckoApiKey?: string;
+  coingecko?: {
+    apiKey?: string;
+    customUrl?: string;
+  };
 
   // White lists
   chains?: Chain[];
@@ -135,12 +137,13 @@ export interface InternalConfig<N extends Network> {
 
   // External resources
   rpcs: ChainResourceMap;
-  rest: ChainResourceMap;
-  graphql: ChainResourceMap;
   mayanApi: string;
   wormholeApi: string;
   wormholeRpcHosts: string[];
-  coinGeckoApiKey?: string;
+  coingecko?: {
+    apiKey?: string;
+    customUrl?: string;
+  };
 
   tokens: TokenCache;
   tokenWhitelist?: (string | TokenTuple)[];
@@ -181,11 +184,9 @@ export interface ChainConfig extends BaseChainConfig {
   displayName: string;
   explorerUrl: string;
   explorerName: string;
-  gasToken: string;
   wrappedGasToken?: string;
   chainId: number | string;
   icon: Chain;
-  maxBlockSearch: number;
   symbol?: string;
 }
 
@@ -205,8 +206,6 @@ export type NetworkData = {
   tokens: TokenConfig[];
   wrappedTokens: WrappedTokenAddresses;
   rpcs: RpcMapping;
-  rest: RpcMapping;
-  graphql: RpcMapping;
   guardianSet: GuardianSetData;
 };
 
@@ -227,15 +226,15 @@ export interface Transaction {
   sender?: string;
   recipient: string;
 
-  amount: string;
-  amountUsd: number;
-  receiveAmount: string;
+  amount?: string;
+  amountUsd?: number;
+  receiveAmount?: string;
 
   fromChain: Chain;
-  fromToken: Token;
+  fromToken?: Token;
 
   toChain: Chain;
-  toToken: Token;
+  toToken?: Token;
 
   // Timestamps
   senderTimestamp: string;

@@ -100,13 +100,6 @@ export function buildConfig(
 
     // External resources
     rpcs,
-    rest: Object.assign(
-      {},
-      sdkConfig.rest,
-      networkData.rest,
-      customConfig.rest,
-    ),
-    graphql: Object.assign({}, networkData.graphql, customConfig.graphql),
     mayanApi: 'https://explorer-api.mayan.finance',
     wormholeApi: {
       Mainnet: 'https://api.wormholescan.io/',
@@ -126,7 +119,7 @@ export function buildConfig(
       ],
       Devnet: ['http://localhost:7071'],
     }[network],
-    coinGeckoApiKey: customConfig.coinGeckoApiKey,
+    coingecko: customConfig.coingecko,
 
     // Callbacks
     triggerEvent: wrapEventHandler(customConfig.eventHandler),

@@ -13,11 +13,12 @@ import { makeStyles } from 'tss-react/mui';
 import config from 'config';
 import { RouteContext } from 'contexts/RouteContext';
 import AssetBadge from 'components/AssetBadge';
+import ExplorerLink from 'components/ExplorerLink';
 import {
   calculateUSDPrice,
+  getExplorerUrl,
   millisToHumanString,
   trimAddress,
-  trimTxHash,
 } from 'utils';
 import { getExplorerInfo } from 'utils/sdkv2';
 import { amount as sdkAmount } from '@wormhole-foundation/sdk';
@@ -30,9 +31,11 @@ const useStyles = makeStyles()((theme: any) => ({
   container: {
     width: '100%',
     maxWidth: '420px',
+    backgroundColor: theme.palette.input.background,
   },
   card: {
     width: '100%',
+    backgroundColor: theme.palette.input.background,
   },
 }));
 
@@ -88,6 +91,9 @@ const TransactionDetails = () => {
     );
 
     const senderAddress = sender ? trimAddress(sender) : '';
+    const explorerUrl = sender
+      ? getExplorerUrl(fromChain, sender, 'wallet')
+      : '';
 
     const formattedAmount = sdkAmount.display(sdkAmount.truncate(amount, 6));
 
@@ -107,7 +113,7 @@ const TransactionDetails = () => {
                 {usdAmount ? separator : null}
                 {sourceChainConfig.displayName}
                 {separator}
-                {senderAddress}
+                <ExplorerLink url={explorerUrl} text={senderAddress} />
               </>
             )}
           </Typography>
@@ -141,6 +147,9 @@ const TransactionDetails = () => {
     );
 
     const recipientAddress = recipient ? trimAddress(recipient) : '';
+    const explorerUrl = recipient
+      ? getExplorerUrl(toChain, recipient, 'wallet')
+      : '';
 
     const formattedReceiveAmount = receiveAmount
       ? sdkAmount.display(sdkAmount.truncate(receiveAmount, 6))
@@ -162,7 +171,7 @@ const TransactionDetails = () => {
                 {usdAmount ? separator : null}
                 {destChainConfig.displayName}
                 {separator}
-                {recipientAddress}
+                <ExplorerLink url={explorerUrl} text={recipientAddress} />
               </>
             )}
           </Typography>
@@ -335,14 +344,17 @@ const TransactionDetails = () => {
     );
   }, [eta, theme.palette.text.secondary, toChain]);
 
+  const trimmedTx = sendTx ? trimAddress(sendTx) : '';
+  const explorerUrl = sendTx ? getExplorerUrl(fromChain, sendTx, 'tx') : '';
+
   return (
     <div className={classes.container}>
       <Card className={classes.card}>
         <CardContent>
-          <Typography
-            color={theme.palette.text.secondary}
-            marginBottom="12px"
-          >{`Transaction #${trimTxHash(sendTx)}`}</Typography>
+          <Typography color={theme.palette.text.secondary} marginBottom="12px">
+            {`Transaction #`}
+            <ExplorerLink url={explorerUrl} text={trimmedTx} />
+          </Typography>
           {sentAmount}
           {verticalConnector}
           {receivedAmount}

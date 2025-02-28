@@ -15,15 +15,22 @@ import TokenIcon from 'icons/TokenIcons';
 import { Token } from 'config/tokens';
 
 import type { Chain } from '@wormhole-foundation/sdk';
-import { chainDisplayName, getTokenExplorerUrl } from 'utils';
+import { chainDisplayName, getExplorerUrl } from 'utils';
 import ChainIcon from 'icons/ChainIcons';
+import { opacify } from 'utils/theme';
 
 const useStyles = makeStyles()((theme) => ({
   tokenListItem: {
     display: 'flex',
     justifyContent: 'space-between',
-    paddingLeft: 8,
-    borderRadius: 8,
+    padding: '8px 16px',
+    borderRadius: 0,
+    ':hover': {
+      backgroundColor: opacify(theme.palette.primary.main, 0.07),
+    },
+  },
+  tokenListItemSelected: {
+    backgroundColor: opacify(theme.palette.primary.main, 0.07),
   },
   tokenDetails: {
     display: 'flex',
@@ -51,6 +58,7 @@ type TokenItemProps = {
   price: string | null;
   onClick: () => void;
   disabled?: boolean;
+  isSelected?: boolean;
   isFetchingBalance?: boolean;
 };
 
@@ -59,18 +67,20 @@ function TokenItem(props: TokenItemProps) {
   const theme = useTheme();
 
   const { chain, token } = props;
-  // If the token is native to the chain, show the token's address.
-  // Otherwise, show the wrapped token's address.
   const address = token.tokenId?.address.toString();
-  const explorerURL = address ? getTokenExplorerUrl(chain, address) : undefined;
+  const explorerURL = address
+    ? getExplorerUrl(chain, address, 'token')
+    : undefined;
   const addressDisplay = `${token.shortAddress}`;
 
   return (
     <ListItemButton
-      className={classes.tokenListItem}
+      className={`${classes.tokenListItem} ${
+        props.isSelected ? classes.tokenListItemSelected : ''
+      }`}
       dense
       disabled={props.disabled}
-      onClick={props.onClick}
+      onMouseDown={props.onClick}
     >
       <div className={classes.tokenDetails}>
         <ListItemIcon>

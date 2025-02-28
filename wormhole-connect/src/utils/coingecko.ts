@@ -23,6 +23,7 @@ const NATIVE_TOKEN_IDS: Partial<Record<Chain, string>> = {
   Mantle: 'mantle',
   Aptos: 'aptos',
   Sui: 'sui',
+  Berachain: 'berachain-bera',
 };
 
 // This refers to Coingecko API's platform names: https://api.coingecko.com/api/v3/asset_platforms
@@ -45,12 +46,16 @@ const coingeckoRequest = async (
 ): Promise<Response> => {
   const headers = new Headers({
     'Content-Type': 'application/json',
-    ...(config.coinGeckoApiKey
-      ? { 'x-cg-pro-api-key': config.coinGeckoApiKey }
+    ...(config.coingecko?.apiKey
+      ? { 'x-cg-pro-api-key': config.coingecko.apiKey }
       : {}),
   });
 
-  const hostname = config.coinGeckoApiKey ? COINGECKO_URL_PRO : COINGECKO_URL;
+  const hostname = config.coingecko?.customUrl
+    ? config.coingecko.customUrl
+    : config.coingecko?.apiKey
+    ? COINGECKO_URL_PRO
+    : COINGECKO_URL;
 
   return fetch(`${hostname}${path}`, {
     signal: params?.abort?.signal,

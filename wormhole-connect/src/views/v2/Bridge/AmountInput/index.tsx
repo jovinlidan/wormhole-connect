@@ -91,13 +91,19 @@ const DebouncedTextField = memo(
   },
 );
 
-const useStyles = makeStyles()((theme) => ({
+const useStyles = makeStyles()((theme: any) => ({
   amountContainer: {
     width: '100%',
     maxWidth: '420px',
   },
-  amountCard: {
+  amountInput: {
     borderRadius: '8px',
+    background: 'transparent',
+    border: `1px solid ${theme.palette.input.border}`,
+  },
+  amountInputEmpty: {
+    background: theme.palette.input.background,
+    borderColor: theme.palette.input.background,
   },
   amountCardContent: {
     display: 'flex',
@@ -295,7 +301,11 @@ const AmountInput = (props: Props) => {
       <div className={classes.amountTitle}>
         <Typography variant="body2">Amount</Typography>
       </div>
-      <Card className={classes.amountCard} variant="elevation">
+      <Card
+        className={`${classes.amountInput} ${
+          amountInput === '' ? classes.amountInputEmpty : ''
+        }`}
+      >
         <CardContent className={classes.amountCardContent}>
           <DebouncedTextField
             fullWidth

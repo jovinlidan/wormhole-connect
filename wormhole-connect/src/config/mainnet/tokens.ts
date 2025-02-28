@@ -611,4 +611,49 @@ export const MAINNET_TOKENS: TokenConfig[] = [
     decimals: 18,
     icon: TokenIcon.WORLDCHAIN,
   },
+  {
+    symbol: 'ETH',
+    tokenId: {
+      chain: 'Unichain',
+      address: 'native',
+    },
+    decimals: 18,
+    icon: TokenIcon.ETH,
+  },
+  {
+    symbol: 'WETH',
+    tokenId: {
+      chain: 'Unichain',
+      address: '0x4200000000000000000000000000000000000006',
+    },
+    decimals: 18,
+    icon: TokenIcon.ETH,
+  },
+  {
+    symbol: 'USDC',
+    tokenId: {
+      chain: 'Unichain',
+      address: '0x078D782b760474a361dDA0AF3839290b0EF57AD6',
+    },
+    decimals: 6,
+    icon: TokenIcon.USDC,
+  },
+  {
+    symbol: 'BERA',
+    tokenId: {
+      chain: 'Berachain',
+      address: 'native',
+    },
+    decimals: 18,
+    icon: TokenIcon.BERA,
+  },
+  {
+    symbol: 'WBERA',
+    tokenId: {
+      chain: 'Berachain',
+      address: '0x6969696969696969696969696969696969696969',
+    },
+    decimals: 18,
+    icon: TokenIcon.BERA,
+  },
 ];

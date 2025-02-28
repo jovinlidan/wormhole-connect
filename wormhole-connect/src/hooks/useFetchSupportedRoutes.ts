@@ -77,9 +77,12 @@ const useFetchSupportedRoutes = (): HookReturn => {
           );
         }
 
-        // HAX
+        // HAX - Enable Mayan routes (except SHUTTLE) for all assets
         // TODO token refactor
-        if (route.rc.name.includes('Mayan')) {
+        if (
+          route.rc.name.includes('Mayan') &&
+          route.rc.name !== 'MayanRouteSHUTTLE'
+        ) {
           supported = true;
         }
 
@@ -99,7 +102,15 @@ const useFetchSupportedRoutes = (): HookReturn => {
     return () => {
       isActive = false;
     };
-  }, [sourceToken, destToken, amount, fromChain, toChain, toNativeToken, receivingWallet]);
+  }, [
+    sourceToken,
+    destToken,
+    amount,
+    fromChain,
+    toChain,
+    toNativeToken,
+    receivingWallet,
+  ]);
 
   return {
     supportedRoutes: routes,

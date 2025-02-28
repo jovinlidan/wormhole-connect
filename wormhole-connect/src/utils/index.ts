@@ -284,25 +284,40 @@ export const isEmptyObject = (value: object | null | undefined) => {
   return true;
 };
 
-export const getTokenExplorerUrl = (chain: Chain, address: string) => {
+export type ExplorerPathType = 'wallet' | 'tx' | 'token';
+
+export const getExplorerUrl = (
+  chain: Chain,
+  path: string,
+  pathType: ExplorerPathType,
+) => {
   const chainConfig = config.chains[chain]!;
-  let explorerUrl = '';
+  const baseUrl = chainConfig.explorerUrl;
 
-  if (chain === 'Sui') {
-    explorerUrl = `${chainConfig.explorerUrl}coin/${address}`;
-  } else if (chain === 'Aptos') {
-    if (isHexString(address)) {
-      explorerUrl = `${chainConfig.explorerUrl}fungible_asset/${address}`;
-    } else {
-      explorerUrl = `${chainConfig.explorerUrl}coin/${address}`;
-    }
-  } else {
-    explorerUrl = `${chainConfig.explorerUrl}address/${address}`;
+  switch (pathType) {
+    case 'wallet':
+      return chain === 'Aptos'
+        ? `${baseUrl}account/${path}`
+        : `${baseUrl}address/${path}`;
+    case 'tx':
+      return chain === 'Aptos'
+        ? `${baseUrl}txn/${path}`
+        : `${baseUrl}tx/${path}`;
+    default:
+      switch (chain) {
+        case 'Sui':
+          return `${baseUrl}coin/${path}`;
+        case 'Aptos':
+          return `${baseUrl}${
+            isHexString(path) ? 'fungible_asset' : 'coin'
+          }/${path}`;
+        case 'Solana':
+          return `${baseUrl}address/${path}`;
+        default:
+          return `${baseUrl}token/${path}`;
+      }
   }
-
-  return explorerUrl;
 };
-
 // Frankenstein tokens are wormhole-wrapped tokens that are not native to the chain
 // and likely have no liquidity.
 // An example of a Frankenstein token is wormhole-wrapped Arbitrum WETH on Solana.

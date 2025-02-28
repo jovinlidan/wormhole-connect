@@ -21,6 +21,8 @@ import { getTokenMetadataFromRpc } from 'utils/tokens';
 
 const TOKEN_CACHE_VERSION = 1;
 
+const HAS_LOCALSTORAGE = typeof localStorage !== 'undefined';
+
 export class Token {
   chain: Chain;
   address: TokenAddress<Chain>;
@@ -156,9 +158,12 @@ export class TokenMapping<T> {
   // Mapping of Chain -> token address -> T
   _mapping: Map<Chain, Map<string, T>>;
 
+  size: number;
+
   constructor() {
     this.lastUpdate = new Date();
     this._mapping = new Map();
+    this.size = 0;
   }
 
   add(token: TokenId, value: T) {
@@ -168,6 +173,7 @@ export class TokenMapping<T> {
 
     this._mapping.get(token.chain)!.set(token.address.toString(), value);
     this.lastUpdate = new Date();
+    this.size += 1;
   }
 
   // You can get a token either using its string key, TokenId, or with (chain, address)
@@ -233,6 +239,14 @@ export class TokenMapping<T> {
     );
   }
 
+  getAllTokenIds(): TokenId[] {
+    return Array.from(this._mapping.keys()).flatMap((chain) =>
+      Array.from(this._mapping.get(chain)!.keys()).map((address) =>
+        Wormhole.tokenId(chain, address),
+      ),
+    );
+  }
+
   get chains(): Chain[] {
     return Array.from(this._mapping.keys());
   }
@@ -242,6 +256,13 @@ export class TokenMapping<T> {
     other.forEach(this.add);
   }
 
+  // Removes all records from the TokenMapping
+  clear() {
+    this.lastUpdate = new Date();
+    this._mapping = new Map();
+    this.size = 0;
+  }
+
   forEach(callback: (tokenId: TokenId, val: T) => void) {
     this._mapping.forEach((nextLevel, chain) => {
       nextLevel.forEach((val, addr) => {
@@ -249,6 +270,10 @@ export class TokenMapping<T> {
         callback(tokenId, val);
       });
     });
+  }
+
+  get empty(): boolean {
+    return this.size === 0;
   }
 }
 
@@ -378,7 +403,7 @@ export class TokenCache extends TokenMapping<Token> {
   }
 
   persist() {
-    if (this._localStorageKey) {
+    if (HAS_LOCALSTORAGE && this._localStorageKey) {
       const asJson = {
         version: TOKEN_CACHE_VERSION,
         tokens: {},
@@ -393,22 +418,24 @@ export class TokenCache extends TokenMapping<Token> {
   }
 
   static load(localStorageKey: string): TokenCache {
-    const jsonString = localStorage.getItem(localStorageKey);
-    if (jsonString) {
-      try {
-        const asJson = JSON.parse(jsonString);
-        const mapping = new TokenCache();
+    if (HAS_LOCALSTORAGE) {
+      const jsonString = localStorage.getItem(localStorageKey);
+      if (jsonString) {
+        try {
+          const asJson = JSON.parse(jsonString);
+          const mapping = new TokenCache();
 
-        mapping.setLocalStorageKey(localStorageKey);
+          mapping.setLocalStorageKey(localStorageKey);
 
-        for (const [, tokenData] of Object.entries(asJson.tokens)) {
-          const token = Token.fromJson(tokenData as TokenJson);
-          mapping.add(token);
+          for (const [, tokenData] of Object.entries(asJson.tokens)) {
+            const token = Token.fromJson(tokenData as TokenJson);
+            mapping.add(token);
+          }
+
+          return mapping;
+        } catch (e) {
+          console.error('Error parsing cached TokenCache', e);
         }
-
-        return mapping;
-      } catch (e) {
-        console.error('Error parsing cached TokenCache', e);
       }
     }
 

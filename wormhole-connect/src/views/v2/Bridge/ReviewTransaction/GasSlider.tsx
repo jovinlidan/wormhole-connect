@@ -106,7 +106,7 @@ const GasSlider = (props: {
 
   useEffect(() => {
     dispatch(setToNativeToken(debouncedPercentage / 100));
-  }, [debouncedPercentage]);
+  }, [debouncedPercentage, dispatch]);
 
   const nativeGasPrice = useMemo(() => {
     if (!destChain || !nativeGasToken) {
@@ -174,7 +174,7 @@ const GasSlider = (props: {
                 defaultValue={0}
                 value={percentage}
                 baseColor={theme.palette.primary.main}
-                railColor={theme.palette.background.default}
+                railColor={theme.palette.secondary.main}
                 step={1}
                 min={0}
                 max={100}
