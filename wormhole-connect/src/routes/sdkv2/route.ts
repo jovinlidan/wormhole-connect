@@ -9,6 +9,7 @@ import {
   TokenId as TokenId,
   TransferState,
   TransactionId,
+  Signer,
 } from '@wormhole-foundation/sdk';
 import { Token } from 'config/tokens';
 
@@ -70,23 +71,6 @@ export class SDKv2Route {
     const fromChainSupported = supportedChains.includes(fromContext.chain);
     const toChainSupported = supportedChains.includes(toContext.chain);
 
-    const fromTokenSupported = !!(
-      await this.rc.supportedSourceTokens(fromContext.context)
-    ).find((tokenId) => {
-      return isSameToken(tokenId, sourceToken);
-    });
-
-    if (
-      this.IS_TOKEN_BRIDGE_ROUTE &&
-      (await isNttSupportedToken(
-        sourceToken,
-        fromContext.context,
-        toContext.context,
-      ))
-    ) {
-      return false;
-    }
-
     const supportedDestinationTokens = await this.rc.supportedDestinationTokens(
       sourceToken,
       fromContext.context,
@@ -98,25 +82,13 @@ export class SDKv2Route {
     });
 
     const isSupported =
-      fromChainSupported &&
-      toChainSupported &&
-      fromTokenSupported &&
-      toTokenSupported;
+      fromChainSupported && toChainSupported && toTokenSupported;
 
     return isSupported;
   }
 
   isSupportedChain(chain: Chain): boolean {
     return this.rc.supportedChains(config.network).includes(chain);
-  }
-
-  async supportedSourceTokens(fromChain?: Chain | undefined): Promise<Token[]> {
-    if (!fromChain) return [];
-
-    const fromContext = await this.getV2ChainContext(fromChain);
-    return (await this.rc.supportedSourceTokens(fromContext.context))
-      .map((t: TokenId) => config.tokens.get(t))
-      .filter((tc) => tc != undefined) as Token[];
   }
 
   async supportedDestTokens(
@@ -126,14 +98,15 @@ export class SDKv2Route {
   ): Promise<TokenId[]> {
     if (!fromChain || !toChain || !sourceToken) return [];
 
-    if (this.IS_TOKEN_BRIDGE_ROUTE) {
-      if (this.isIlliquidDestToken(sourceToken, toChain)) {
-        return [];
-      }
-    }
-
     const fromContext = await this.getV2ChainContext(fromChain);
     const toContext = await this.getV2ChainContext(toChain);
+
+    const isIlliquid = await this.isIlliquidDestToken(
+      sourceToken,
+      fromContext.context,
+      toContext.context,
+    );
+    if (isIlliquid) return [];
 
     const destTokenIds = await this.rc.supportedDestinationTokens(
       sourceToken.tokenId,
@@ -280,12 +253,18 @@ export class SDKv2Route {
       throw quote.error;
     }
 
-    const signer = await SDKv2Signer.fromChain(
-      fromChain,
-      senderAddress,
-      {},
-      TransferWallet.SENDING,
-    );
+    let signer: Signer;
+
+    if (config.ui.testOptions?.enableHeadlessSigner) {
+      signer = await SDKv2Signer.fromPrivateKey(fromChain);
+    } else {
+      signer = await SDKv2Signer.fromChain(
+        fromChain,
+        senderAddress,
+        {},
+        TransferWallet.SENDING,
+      );
+    }
 
     let receipt = await route.initiate(
       req,
@@ -343,10 +322,27 @@ export class SDKv2Route {
   // Prevent receiving illiquid wormhole-wrapped tokens
   // This is not a perfect solution or an exhaustive list of all illiquid tokens,
   // but it should cover the most common cases
-  isIlliquidDestToken(token: Token, toChain: Chain): boolean {
+  async isIlliquidDestToken(
+    token: Token,
+    fromContext: ChainContext<Network, Chain>,
+    toContext: ChainContext<Network, Chain>,
+  ): Promise<boolean> {
+    if (!this.IS_TOKEN_BRIDGE_ROUTE) return false;
+
     const { symbol, nativeChain } = token;
 
-    if (isFrankensteinToken(token, toChain)) {
+    if (isFrankensteinToken(token, toContext.chain)) {
+      return true;
+    }
+
+    // Exclude wormhole-wrapped tokens on the destination chain
+    // if the NTT route is supported
+    const isNttSupported = await isNttSupportedToken(
+      token,
+      fromContext,
+      toContext,
+    );
+    if (isNttSupported) {
       return true;
     }
 
@@ -355,7 +351,7 @@ export class SDKv2Route {
       ['ETH', 'WETH'].includes(symbol) &&
       nativeChain === 'Ethereum' &&
       (['Scroll', 'Blast', 'Xlayer', 'Mantle', 'Unichain'] as Chain[]).includes(
-        toChain,
+        toContext.chain,
       )
     ) {
       return true;
@@ -375,16 +371,17 @@ const isNttSupportedToken = async (
     const route: SDKv2Route | undefined = config.routes.get(routeName);
     if (!route) return false;
 
-    const [sourceTokens, destTokens] = await Promise.all([
-      route.rc.supportedSourceTokens(fromContext),
-      route.rc.supportedDestinationTokens(token, fromContext, toContext),
-    ]);
+    try {
+      const destTokens = await route.rc.supportedDestinationTokens(
+        token,
+        fromContext,
+        toContext,
+      );
 
-    const isSourceTokenSupported = sourceTokens.some((t) =>
-      isSameToken(t, token),
-    );
-
-    return isSourceTokenSupported && destTokens.length > 0;
+      return destTokens.length > 0;
+    } catch (e) {
+      return false;
+    }
   };
 
   const [isManualSupported, isAutomaticSupported, isM0Supported] =

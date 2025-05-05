@@ -2,6 +2,15 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import WormholeConnect from './WormholeConnect';
 import ErrorBoundary from './components/ErrorBoundary';
+import { DEFAULT_ROUTES } from 'routes/operator';
+import {
+  MayanRouteWH,
+  MayanRouteMCTP,
+  MayanRouteSWIFT,
+  MayanRouteSHUTTLE,
+} from '@mayanfinance/wormhole-sdk-route';
+import { M0AutomaticRoute } from '@m0-foundation/ntt-sdk-route';
+export * from './theme';
 
 // This is the entry point that runs when integrators add the Connect widget
 // to their websites by pasting <script> and <link> tags pointing to the
@@ -23,9 +32,21 @@ if (!container) {
 }
 
 /* @ts-ignore */
-const config = window.__CONNECT_CONFIG as WormholeConnectConfig;
+const _config = window.__CONNECT_CONFIG as WormholeConnectConfig;
 /* @ts-ignore */
 const theme = window.__CONNECT_THEME as WormholeConnectPartialTheme;
+
+const config = {
+  ...(_config ?? {}),
+  routes: [
+    ...DEFAULT_ROUTES,
+    MayanRouteWH,
+    MayanRouteMCTP,
+    MayanRouteSWIFT,
+    MayanRouteSHUTTLE,
+    M0AutomaticRoute,
+  ],
+};
 
 const root = ReactDOM.createRoot(container);
 

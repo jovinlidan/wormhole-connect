@@ -1,5 +1,6 @@
 import config from 'config';
 import { parseTokenKey, Token, tokenKey } from 'config/tokens';
+import { maybeLogSdkError } from 'utils/errors';
 
 import {
   Chain,
@@ -20,7 +21,6 @@ import {
 import '@wormhole-foundation/sdk-definitions-ntt';
 import '@wormhole-foundation/sdk-evm-ntt';
 import '@wormhole-foundation/sdk-solana-ntt';
-import { maybeLogSdkError } from 'utils/errors';
 
 export interface TxInfo {
   route: string;
@@ -37,6 +37,7 @@ export const DEFAULT_ROUTES = [
   routes.AutomaticTokenBridgeRoute,
   routes.TokenBridgeRoute,
   routes.AutomaticPorticoRoute,
+  routes.TBTCRoute,
 ];
 
 export interface QuoteParams {
@@ -155,22 +156,6 @@ export default class RouteOperator {
     return Array.from(supported);
   }
 
-  async allSupportedSourceTokens(sourceChain?: Chain): Promise<Token[]> {
-    const supported: { [key: string]: Token } = {};
-    await this.forEach(async (_name, route) => {
-      try {
-        const sourceTokens = await route.supportedSourceTokens(sourceChain);
-
-        for (const token of sourceTokens) {
-          supported[token.key] = token;
-        }
-      } catch (e) {
-        maybeLogSdkError(e);
-      }
-    });
-    return Object.values(supported);
-  }
-
   async allSupportedDestTokens(
     sourceToken: Token | undefined,
     sourceChain: Chain,
@@ -197,7 +182,7 @@ export default class RouteOperator {
           }
         }
       } catch (e) {
-        console.error(e);
+        maybeLogSdkError(e);
       }
     });
 

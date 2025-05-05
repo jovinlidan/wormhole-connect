@@ -118,6 +118,7 @@ let external = [
   '@particle-network/auth',
 ];
 
+//@ts-ignore
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const isHosted = !!env.VITE_BUILD_HOSTED;
@@ -133,7 +134,7 @@ export default defineConfig(({ command, mode }) => {
         outDir: './build',
         rollupOptions: {
           input: {
-            main: 'src/demo.tsx',
+            main: 'src/SampleApp.tsx',
             index: 'index.html',
           },
           output,
@@ -172,7 +173,9 @@ export default defineConfig(({ command, mode }) => {
               ...output,
             },
             external,
+            makeAbsoluteExternalsRelative: false,
           },
+          modulePreload: false,
         },
         plugins,
         optimizeDeps,

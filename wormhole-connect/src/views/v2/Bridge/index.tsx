@@ -21,7 +21,6 @@ import Button from 'components/v2/Button';
 import config from 'config';
 import useFetchSupportedRoutes from 'hooks/useFetchSupportedRoutes';
 import useComputeDestinationTokens from 'hooks/useComputeDestinationTokens';
-import useComputeSourceTokens from 'hooks/useComputeSourceTokens';
 import { useSortedRoutesWithQuotes } from 'hooks/useSortedRoutesWithQuotes';
 import { useAmountValidation } from 'hooks/useAmountValidation';
 import useConfirmTransaction from 'hooks/useConfirmTransaction';
@@ -128,7 +127,6 @@ const Bridge = () => {
     toChain: destChain,
     route,
     preferredRouteName,
-    supportedSourceTokens,
     amount,
     validations,
     isTransactionInProgress,
@@ -143,16 +141,6 @@ const Bridge = () => {
     quotesMap,
     isFetching: isFetchingQuotes,
   } = useSortedRoutesWithQuotes();
-
-  // Compute and set source tokens
-  const { isFetching: isFetchingSupportedSourceTokens } =
-    useComputeSourceTokens({
-      sourceChain,
-      destChain,
-      sourceToken,
-      destToken,
-      route,
-    });
 
   // Compute and set destination tokens
   const { isFetching: isFetchingSupportedDestTokens, supportedDestTokens } =
@@ -222,14 +210,6 @@ const Bridge = () => {
     sourceTokenArray,
   );
 
-  const disableValidation =
-    !sendingWallet.address ||
-    !receivingWallet.address ||
-    !sourceChain ||
-    !sourceToken ||
-    !destChain ||
-    !destToken;
-
   // Validate amount
   const amountValidation = useAmountValidation({
     balance: sourceToken ? balances[sourceToken.key]?.balance : null,
@@ -237,7 +217,7 @@ const Bridge = () => {
     quotesMap,
     tokenSymbol: sourceToken?.symbol ?? '',
     isLoading: isFetchingBalances || isFetchingQuotes,
-    disabled: disableValidation,
+    disabled: !sendingWallet.address || !sourceChain || !sourceToken,
   });
 
   //useFetchTokenPrices(sourceToken ? [sourceToken.tokenId] : []);
@@ -311,9 +291,6 @@ const Bridge = () => {
           chainList={supportedSourceChains}
           token={sourceToken}
           tokenList={sourceTokens}
-          isFetching={
-            sourceTokens.length === 0 && isFetchingSupportedSourceTokens
-          }
           setChain={(value: Chain) => {
             selectFromChain(dispatch, value, sendingWallet);
           }}
@@ -323,6 +300,7 @@ const Bridge = () => {
           wallet={sendingWallet}
           isSource={true}
           isTransactionInProgress={isTransactionInProgress}
+          dataTestId="source-asset-picker"
         />
         <SwapInputs />
       </div>
@@ -335,8 +313,6 @@ const Bridge = () => {
     sourceToken,
     sourceTokens,
     lastTokenCacheUpdate,
-    supportedSourceTokens,
-    isFetchingSupportedSourceTokens,
     isTransactionInProgress,
     sendingWallet,
     dispatch,
@@ -368,6 +344,7 @@ const Bridge = () => {
           wallet={receivingWallet}
           isSource={false}
           isTransactionInProgress={isTransactionInProgress}
+          dataTestId="dest-asset-picker"
         />
       </div>
     );
@@ -396,6 +373,7 @@ const Bridge = () => {
           align="left"
           text={config.ui.title ?? 'Wormhole Connect'}
           size={18}
+          testId="bridge-view-header"
         />
         <Tooltip
           title={!sendingWallet?.address ? 'No connected wallets found' : ''}
@@ -504,9 +482,6 @@ const Bridge = () => {
 
   const hasConnectedWallets = sendingWallet.address && receivingWallet.address;
 
-  const showRoutes =
-    hasConnectedWallets && isWalletCompatible && hasEnteredAmount && !hasError;
-
   const confirmTransactionDisabled =
     !sourceChain ||
     !sourceToken ||
@@ -526,6 +501,7 @@ const Bridge = () => {
     return (
       <Button
         disabled={confirmTransactionDisabled}
+        data-testid="confirm-transaction-button"
         variant="primary"
         className={classes.confirmTransaction}
         onClick={() => onConfirm()}
@@ -584,7 +560,10 @@ const Bridge = () => {
       : '';
 
   return (
-    <div className={joinClass([classes.bridgeContent, classes.spacer])}>
+    <div
+      className={joinClass([classes.bridgeContent, classes.spacer])}
+      data-testid="bridge-view"
+    >
       {header}
       {config.ui.showInProgressWidget && (
         <TxHistoryWidget disabled={isTransactionInProgress} />
@@ -594,13 +573,13 @@ const Bridge = () => {
       {destAssetPicker}
       <AmountInput
         sourceChain={sourceChain}
-        supportedSourceTokens={config.tokens.getList(supportedSourceTokens)}
+        supportedSourceTokens={sourceTokens}
         tokenBalance={sourceToken ? balances[sourceToken.key]?.balance : null}
         isFetchingTokenBalance={isFetchingBalances}
         error={amountValidation.error}
         warning={amountValidation.warning || walletWarning}
       />
-      {showRoutes && (
+      {hasEnteredAmount && (
         <Routes
           routes={sortedRoutes}
           selectedRoute={route}
@@ -609,7 +588,6 @@ const Bridge = () => {
           }}
           quotes={quotesMap}
           isLoading={isFetchingQuotes || isFetchingBalances}
-          hasError={hasError}
         />
       )}
       {transactionError}
