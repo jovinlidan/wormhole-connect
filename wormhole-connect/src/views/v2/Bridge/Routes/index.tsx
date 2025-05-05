@@ -30,7 +30,6 @@ type Props = {
   onRouteChange: (route: string) => void;
   quotes: Record<string, routes.QuoteResult<routes.Options> | undefined>;
   isLoading: boolean;
-  hasError: boolean;
 };
 
 const Routes = ({ ...props }: Props) => {
@@ -49,7 +48,7 @@ const Routes = ({ ...props }: Props) => {
     const selectedRoute = routes.find((route) => route === props.selectedRoute);
 
     return selectedRoute ? [selectedRoute] : routes.slice(0, 1);
-  }, [showAll, routes]);
+  }, [showAll, routes, props.selectedRoute]);
 
   const fastestRoute = useMemo(() => {
     return routes.reduce(
@@ -88,10 +87,6 @@ const Routes = ({ ...props }: Props) => {
       { name: '', amountOut: 0n },
     );
   }, [routes, props.quotes]);
-
-  if (props.hasError) {
-    return null;
-  }
 
   return (
     <>
@@ -145,8 +140,9 @@ const Routes = ({ ...props }: Props) => {
 
       {routes.length > 1 && (
         <Link
-          onClick={() => setShowAll((prev) => !prev)}
           className={classes.otherRoutesToggle}
+          data-testid="other-routes-toggle"
+          onClick={() => setShowAll((prev) => !prev)}
         >
           {showAll ? 'Hide other routes' : 'View other routes'}
         </Link>

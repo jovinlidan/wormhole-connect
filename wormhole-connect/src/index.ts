@@ -6,7 +6,6 @@ import MAINNET from './config/mainnet';
 import TESTNET from './config/testnet';
 import { buildConfig } from './config';
 import type { WormholeConnectConfig } from './config/types';
-import type { WormholeConnectEvent } from './telemetry/types';
 
 // Routes
 import { DEFAULT_ROUTES, nttRoutes } from './routes/operator';
@@ -27,6 +26,7 @@ import type { Chain } from '@wormhole-foundation/sdk';
 
 import { wormholeConnectHosted } from './hosted';
 import type { HostedParameters } from './hosted';
+import { Token } from 'config/tokens';
 
 const {
   AutomaticTokenBridgeRoute,
@@ -48,7 +48,7 @@ export {
   WormholeConnectConfig,
   Chain,
   WormholeConnectTheme,
-  WormholeConnectEvent,
+  Token,
 
   // Routes
   DEFAULT_ROUTES,
@@ -70,3 +70,5 @@ export {
   wormholeConnectHosted,
   HostedParameters,
 };
+
+export * from './telemetry';

@@ -15,6 +15,7 @@ import TokenItem from 'views/v2/Bridge/AssetPicker/TokenItem';
 import { calculateUSDPrice, isFrankensteinToken } from 'utils';
 import config from 'config';
 import { useTokens } from 'contexts/TokensContext';
+
 const useStyles = makeStyles()((theme: any) => ({
   card: {
     background: theme.palette.input.background,
@@ -32,7 +33,10 @@ const useStyles = makeStyles()((theme: any) => ({
     justifyContent: 'space-between',
   },
   tokenList: {
-    maxHeight: 340,
+    maxHeight: '360px',
+    [theme.breakpoints.down('sm')]: {
+      maxHeight: '480px',
+    },
   },
 }));
 
@@ -83,7 +87,9 @@ const TokenList = (props: Props) => {
         // Failed to parse the search query as an address... this is expected to happen a lot
       }
     }
-  }, [searchQuery, props.selectedChainConfig.sdkName, getOrFetchToken]);
+    // Run the side-effect only when search query or chain changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, props.selectedChainConfig.sdkName]);
 
   const sortedTokens = useMemo(() => {
     const nativeToken = config.tokens.getGasToken(
@@ -91,7 +97,7 @@ const TokenList = (props: Props) => {
     );
 
     const tokenSet: Set<string> = new Set();
-    const tokens: Array<Token> = [];
+    let tokens: Array<Token> = [];
 
     // First: Add previously selected token at the top of the list,
     // only if it's the selected token's chain
@@ -184,7 +190,7 @@ const TokenList = (props: Props) => {
     }
 
     if (config.tokenWhitelist && config.tokenWhitelist.length > 0) {
-      // If integrator has specified a token whitelist, the last step is to filter the token list by this whitelist.
+      // If integrator has specified a token whitelist, filter the token list by this whitelist.
       //
       // The logic behind how this works is a little complicated. The whitelist is an array of (string | TokenTuple).
       // The strings can be symbols like "USDC", which lets the integrator easily whitelist tokens across all supported chains.
@@ -240,20 +246,26 @@ const TokenList = (props: Props) => {
         }
       }
 
-      return tokens.filter(({ address }) =>
+      tokens = tokens.filter(({ address }) =>
         filteredTokens.has(address.toString()),
       );
     }
 
+    if (config.isTokenSupportedHandler) {
+      // The last step is to filter the tokens by the integrator's token support handler
+      tokens = tokens.filter(config.isTokenSupportedHandler);
+    }
+
     return tokens;
   }, [
-    balances,
-    props.tokenList,
+    props.selectedChainConfig.sdkName,
     props.selectedChainConfig.key,
+    props.selectedToken,
+    props.tokenList,
     props.sourceToken,
     props.isSource,
     props.wallet?.address,
-    props.selectedToken,
+    balances,
     searchQuery,
   ]);
 
@@ -277,6 +289,7 @@ const TokenList = (props: Props) => {
     <SearchableList<Token>
       searchPlaceholder={placeholder}
       className={classes.tokenList}
+      dataTestId="token-search-list"
       listTitle={
         shouldShowEmptyMessage ? (
           noTokensMessage
@@ -299,22 +312,6 @@ const TokenList = (props: Props) => {
       }}
       filterFn={(token, query) => {
         if (query.length === 0) return true;
-
-        const chain = props.selectedChainConfig.key;
-
-        // Exclude frankenstein tokens with no balance
-        const balance = balances?.[token.key]?.balance;
-        const hasBalance = balance && sdkAmount.units(balance) > 0n;
-
-        if (isFrankensteinToken(token, chain) && !hasBalance) {
-          return false;
-        }
-
-        // Exclude wormhole-wrapped tokens with no balance
-        // unless it's canonical
-        if (props.isSource && token.isTokenBridgeWrappedToken && !hasBalance) {
-          return false;
-        }
 
         const queryLC = query.toLowerCase();
 

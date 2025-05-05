@@ -80,6 +80,7 @@ function TokenItem(props: TokenItemProps) {
       }`}
       dense
       disabled={props.disabled}
+      data-testid={`token-button-${token.chain.toLowerCase()}-${token.address.toString()}`}
       onMouseDown={props.onClick}
     >
       <div className={classes.tokenDetails}>
@@ -126,6 +127,7 @@ function TokenItem(props: TokenItemProps) {
               <Typography fontSize={10} color={theme.palette.text.secondary}>
                 {!isNative(address) && (
                   <Link
+                    onMouseDown={(e) => e.stopPropagation()}
                     onClick={(e) => e.stopPropagation()}
                     className={classes.addressLink}
                     href={explorerURL}

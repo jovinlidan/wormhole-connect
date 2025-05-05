@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { isHexString } from 'ethers';
-import { isValidTransactionDigest } from '@mysten/sui.js';
+import { isValidTransactionDigest } from '@mysten/sui/utils';
 import { Context } from 'sdklegacy';
 
 import config from 'config';
@@ -348,7 +348,7 @@ export const isStableCoin = (token: Token) => {
 };
 
 export const millisToHumanString = (ts: number): string => {
-  if (ts > 60000) {
+  if (ts >= 2 * 60000) {
     const minutes = Math.ceil(ts / 60000);
     return `~${minutes} min`;
   } else {

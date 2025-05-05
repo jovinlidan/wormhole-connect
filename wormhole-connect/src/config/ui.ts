@@ -23,6 +23,21 @@ export type UiConfig = {
 
   // Set to true to disable the ability to paste in a token address
   disableUserInputtedTokens?: boolean;
+
+  // UI test options
+  testOptions?: TestOptions;
+
+  // UI experimental features
+  experimental?: Experimental;
+};
+
+export type TestOptions = {
+  enableHeadlessSigner?: boolean;
+};
+
+export type Experiments = '';
+export type Experimental = {
+  [Experiment in Experiments]?: boolean;
 };
 
 export interface DefaultInputs {
@@ -60,6 +75,7 @@ export interface MenuEntry {
 export function createUiConfig(customConfig: UiConfig): UiConfig {
   return {
     ...customConfig,
+    experimental: customConfig.experimental ?? {},
     walletConnectProjectId:
       customConfig?.walletConnectProjectId ??
       import.meta.env.REACT_APP_WALLET_CONNECT_PROJECT_ID,

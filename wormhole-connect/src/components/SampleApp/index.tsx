@@ -8,11 +8,11 @@ import { compressToBase64, decompressFromBase64 } from 'lz-string';
 
 /*
  *
- * For the purposes of the DemoApp config sandbox, we expose the same exports
+ * For the purposes of the SampleApp config sandbox, we expose the same exports
  * that are available from the production @wormhole-foundation/wormhole-connect
  * library.
  *
- * These can be referenced in the same way in the DemoApp sandbox so that the
+ * These can be referenced in the same way in the SampleApp sandbox so that the
  * config works when it's copy and pasted into an actual integrator project.
  *
  * The exports are:
@@ -27,7 +27,7 @@ import { compressToBase64, decompressFromBase64 } from 'lz-string';
  * - nttTestRoutesMainnet
  * - nttTestRoutesTestnet
  * These just call nttRoutes() with a working config so that we can
- * easily test NTT in the DemoApp.
+ * easily test NTT in SampleApp.
  *
  */
 import { routes } from '@wormhole-foundation/sdk';
@@ -63,6 +63,8 @@ const parseConfig = (config: string): WormholeConnectConfig => {
       window.CCTPRoute = routes.CCTPRoute;
       /* @ts-ignore */
       window.AutomaticPorticoRoute = routes.AutomaticPorticoRoute;
+      /* @ts-ignore */
+      window.TBTCRoute = routes.TBTCRoute;
       /* @ts-ignore */
       window.MayanRoute = MayanRoute;
       /* @ts-ignore */
@@ -136,17 +138,16 @@ const setUrlQueryParam = (configInput: string) => {
   history.replaceState({}, '', url.toString());
 };
 
-const LOCAL_STORAGE_KEY_BG = 'wormhole-connect:demo:custom-bg';
-const LOCAL_STORAGE_KEY_CONFIG = 'wormhole-connect:demo:custom-config';
-const LOCAL_STORAGE_KEY_THEME = 'wormhole-connect:demo:custom-theme';
+const LOCAL_STORAGE_KEY_BG = 'wormhole-connect:sample:custom-bg';
+const LOCAL_STORAGE_KEY_CONFIG = 'wormhole-connect:sample:custom-config';
+const LOCAL_STORAGE_KEY_THEME = 'wormhole-connect:sample:custom-theme';
 
-function DemoApp() {
+function SampleApp() {
   const [customConfig, setCustomConfig] = useState<WormholeConnectConfig>();
   const [customConfigOpen, setCustomConfigOpen] = useState(false);
   const [customConfigInput, setCustomConfigInput] = useState(
     loadInitialConfig(),
   );
-  const [customConfigNonce, setCustomConfigNonce] = useState(1);
   const [isLoadingCustomConfig, setIsLoadingCustomConfig] = useState(true);
 
   const [customTheme, setCustomTheme] = useState<
@@ -168,7 +169,6 @@ function DemoApp() {
     try {
       const parsed = parseConfig(customConfigInput);
       setCustomConfig(parsed);
-      setCustomConfigNonce(customConfigNonce + 1);
     } catch (e) {
       console.error(e);
     }
@@ -204,13 +204,9 @@ function DemoApp() {
   return (
     <main style={{ background: backgroundColor }}>
       <article>
-        <div id="demo-contents">
+        <div id="sample-app">
           {!isLoadingCustomConfig && (
-            <WormholeConnect
-              key={customConfigNonce}
-              config={customConfig}
-              theme={customTheme}
-            />
+            <WormholeConnect config={customConfig} theme={customTheme} />
           )}
         </div>
 
@@ -218,7 +214,7 @@ function DemoApp() {
           <aside>
             <header>
               <div>
-                <h1>Wormhole Connect - demo app</h1>
+                <h1>Wormhole Connect Sample App</h1>
               </div>
             </header>
 
@@ -258,6 +254,10 @@ function DemoApp() {
                   </li>
                   <li>
                     <pre>AutomaticPorticoRoute</pre>
+                    <i>{'RouteConstructor'}</i>
+                  </li>
+                  <li>
+                    <pre>TBTCRoute</pre>
                     <i>{'RouteConstructor'}</i>
                   </li>
                   <li>
@@ -370,6 +370,10 @@ function DemoApp() {
                       <i>string;</i>
                     </li>
                     <li>
+                      <pre>inputFillTreatment</pre>
+                      <i>boolean;</i>
+                    </li>
+                    <li>
                       <pre>primary</pre>
                       <i>string;</i>
                     </li>
@@ -426,4 +430,4 @@ function DemoApp() {
   );
 }
 
-export default DemoApp;
+export default SampleApp;

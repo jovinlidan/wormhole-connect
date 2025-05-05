@@ -81,6 +81,7 @@ const DebouncedTextField = memo(
     return (
       <TextField
         {...props}
+        data-testid="amount-input"
         value={innerValue}
         focused={isFocused}
         onChange={onInnerChange}
@@ -98,8 +99,12 @@ const useStyles = makeStyles()((theme: any) => ({
   },
   amountInput: {
     borderRadius: '8px',
-    background: 'transparent',
-    border: `1px solid ${theme.palette.input.border}`,
+    background: theme.palette.input.fillTreatment
+      ? 'transparent'
+      : theme.palette.input.background,
+    border: theme.palette.input.fillTreatment
+      ? `1px solid ${theme.palette.input.border}`
+      : 'none',
   },
   amountInputEmpty: {
     background: theme.palette.input.background,
@@ -161,6 +166,10 @@ const AmountInput = (props: Props) => {
     amount ? sdkAmount.display(amount) : '',
   );
 
+  const { fromChain: sourceChain, isTransactionInProgress } = useSelector(
+    (state: RootState) => state.transferInput,
+  );
+
   const { sourceToken } = useGetTokens();
 
   const { getTokenPrice } = useTokens();
@@ -177,8 +186,8 @@ const AmountInput = (props: Props) => {
   }, [amount]);
 
   const isInputDisabled = useMemo(
-    () => !props.sourceChain || !sourceToken,
-    [props.sourceChain, sourceToken],
+    () => isTransactionInProgress || !sourceChain || !sourceToken,
+    [isTransactionInProgress, sourceChain, sourceToken],
   );
 
   const balance = useMemo(() => {
@@ -211,11 +220,11 @@ const AmountInput = (props: Props) => {
       </Stack>
     );
   }, [
-    classes.balance,
     isInputDisabled,
+    sendingWallet.address,
+    classes.balance,
     props.isFetchingTokenBalance,
     props.tokenBalance,
-    sendingWallet.address,
   ]);
 
   const handleChange = useCallback((newValue: string): void => {

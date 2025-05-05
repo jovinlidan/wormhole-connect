@@ -5,9 +5,8 @@ import { Chain } from '@wormhole-foundation/sdk';
 
 type Props = {
   destChain: Chain | undefined;
-  destToken: string;
+  destToken: string | undefined;
   route?: string;
-  valid: boolean;
   isTransactionInProgress: boolean;
 };
 
@@ -17,9 +16,9 @@ export const useGasSlider = (
   disabled: boolean;
   showGasSlider: boolean | undefined;
 } => {
-  const { destChain, destToken, route, isTransactionInProgress, valid } = props;
+  const { destChain, destToken, route, isTransactionInProgress } = props;
 
-  const disabled = !valid || isTransactionInProgress;
+  const disabled = isTransactionInProgress;
   const toChainConfig = destChain ? config.chains[destChain] : undefined;
   const gasTokenConfig = toChainConfig
     ? config.tokens.getGasToken(toChainConfig.sdkName)
